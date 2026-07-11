@@ -245,7 +245,11 @@ cups_globals_alloc(void)
     DEBUG_printf("cups_globals_alloc: userconfig=\"%s\"", userconfig);
   }
 
-  cg->userconfig = userconfig;
+  // userconfig is a shared static buffer; cups_globals_free() unconditionally
+  // free()s cg->userconfig (as the POSIX path strdup's it), so each globals
+  // instance must own a heap copy or DllMain's per-thread cleanup corrupts
+  // the heap on every DLL_THREAD_DETACH.
+  cg->userconfig = _strdup(userconfig);
 
 #else
   const char	*home = getenv("HOME");	// HOME environment variable
