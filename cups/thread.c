@@ -167,7 +167,10 @@ void
 cupsRWInit(cups_rwlock_t *rwlock)	// I - Reader/writer lock
 {
   if (rwlock)
-    InitializeSRWLock(rwlock);
+  {
+    InitializeSRWLock(&rwlock->srw);
+    rwlock->wrowner = 0;
+  }
 }
 
 
@@ -179,7 +182,7 @@ void
 cupsRWLockRead(cups_rwlock_t *rwlock)	// I - Reader/writer lock
 {
   if (rwlock)
-    AcquireSRWLockShared(rwlock);
+    AcquireSRWLockShared(&rwlock->srw);
 }
 
 
@@ -191,7 +194,10 @@ void
 cupsRWLockWrite(cups_rwlock_t *rwlock)// I - Reader/writer lock
 {
   if (rwlock)
-    AcquireSRWLockExclusive(rwlock);
+  {
+    AcquireSRWLockExclusive(&rwlock->srw);
+    rwlock->wrowner = GetCurrentThreadId();
+  }
 }
 
 
@@ -204,12 +210,23 @@ cupsRWUnlock(cups_rwlock_t *rwlock)	// I - Reader/writer lock
 {
   if (rwlock)
   {
-    void	*val = *(void **)rwlock;// Lock value
+   /*
+    * An SRWLOCK does not record whether it was taken shared or exclusive, and
+    * the raw lock word cannot tell the two apart once a waiter is queued (an
+    * exclusive hold with queued waiters looks like a shared hold, so the old
+    * "value == 1" heuristic would wrongly ReleaseSRWLockShared an exclusive
+    * lock - undefined behaviour). We instead record the exclusive owner's
+    * thread id in cupsRWLockWrite and clear it here: if this thread owns it
+    * exclusively, release exclusive; otherwise we must be holding it shared.
+    */
 
-    if (val == (void *)1)
-      ReleaseSRWLockExclusive(rwlock);
+    if (rwlock->wrowner == GetCurrentThreadId())
+    {
+      rwlock->wrowner = 0;
+      ReleaseSRWLockExclusive(&rwlock->srw);
+    }
     else
-      ReleaseSRWLockShared(rwlock);
+      ReleaseSRWLockShared(&rwlock->srw);
   }
 }
 

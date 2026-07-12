@@ -30,7 +30,16 @@ typedef struct _cups_thread_s *cups_thread_t;
 					// Thread identifier
 typedef CONDITION_VARIABLE cups_cond_t;	// Condition variable
 typedef CRITICAL_SECTION cups_mutex_t;	// Mutual exclusion lock
-typedef SRWLOCK cups_rwlock_t;		// Reader/writer lock
+typedef struct _cups_rwlock_s		// Reader/writer lock
+{					// NOTE: a write lock MUST be released on
+					// the same thread that took it (wrowner
+					// records that thread so cupsRWUnlock can
+					// pick shared vs exclusive release). This
+					// already matches the POSIX pthread_rwlock
+					// backend, which requires the same.
+  SRWLOCK	srw;			// Slim reader/writer lock
+  DWORD		wrowner;		// Exclusive-owner thread id (0 = not write-held)
+} cups_rwlock_t;
 typedef DWORD	cups_thread_key_t;	// Thread data key
 #    define CUPS_COND_INITIALIZER { 0 }
 #    define CUPS_MUTEX_INITIALIZER { (void*)-1, -1, 0, 0, 0, 0 }
