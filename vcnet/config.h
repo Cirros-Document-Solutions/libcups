@@ -38,10 +38,12 @@
 #define open		_open
 #define read	        _read
 #define rmdir		_rmdir
-#define snprintf	_snprintf
+// snprintf/vsnprintf are deliberately NOT mapped to _snprintf/_vsnprintf: since VS 2015 the
+// UCRT provides C99-conforming versions, while the underscore versions return -1 on truncation
+// and do not NUL-terminate - cupsFilePrintf() then wrote (size_t)-1 bytes and crashed on any
+// formatted output longer than its 1k buffer (e.g. ipptool printing a large printer attribute).
 #define strdup		_strdup
 #define unlink		_unlink
-#define vsnprintf	_vsnprintf
 #define write		_write
 #define poll		WSAPoll		// WinSock...
 
